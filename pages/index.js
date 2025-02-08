@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { ClipLoader } from "react-spinners"; // Loader
+import { Dialog } from "@headlessui/react"; // Modal
 
 const API_URL = "https://jsonplaceholder.typicode.com/users";
 
@@ -8,6 +10,9 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [newUser, setNewUser] = useState({ name: "", email: "" });
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -36,88 +41,161 @@ const UserManagement = () => {
 
   const handleEdit = (user) => {
     setEditingUser(user);
+    setIsEditModalOpen(true); // Open modal for editing
   };
 
   const handleUpdate = async () => {
-    if (!editingUser) return;
     try {
       const response = await axios.put(`${API_URL}/${editingUser.id}`, editingUser);
       setUsers(users.map((user) => (user.id === editingUser.id ? response.data : user)));
+      setIsEditModalOpen(false);
       setEditingUser(null);
     } catch (err) {
       setError("Failed to update user");
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-300 via-pink-400 to-pink-600 text-white p-6">
-      <h1 className="text-3xl font-bold text-center mb-8">User Management Dashboard</h1>
-      {loading && <p className="text-center">Loading users...</p>}
-      {error && <p className="text-red-500 text-center">{error}</p>}
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email) return;
+    try {
+      const response = await axios.post(API_URL, newUser);
+      setUsers([...users, response.data]);
+      setNewUser({ name: "", email: "" });
+    } catch (err) {
+      setError("Failed to add user");
+    }
+  };
 
-      {editingUser && (
-        <div className="bg-white p-4 rounded-lg shadow-lg mb-6 max-w-2xl mx-auto">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Edit User</h2>
-          <div className="flex flex-col gap-4">
+  const filteredUsers = users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="container mx-auto p-4 bg-gradient-to-br from-pink-400 to-pink-600 min-h-screen text-white">
+      <h1 className="text-3xl font-bold text-center mb-6">User Management Dashboard</h1>
+
+      {loading ? (
+        <div className="flex justify-center items-center min-h-[200px]">
+          <ClipLoader color="#ffffff" size={50} />
+        </div>
+      ) : (
+        <>
+          {error && <p className="text-red-300">{error}</p>}
+
+          {/* Search Input */}
+          <div className="mb-4">
             <input
               type="text"
-              value={editingUser.name}
-              onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-              placeholder="Enter name"
+              placeholder="Search by name or email"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full p-2 rounded-lg border border-pink-300 bg-pink-100 text-black"
+            />
+          </div>
+
+          {/* Add User Form */}
+          <div className="mb-4 flex flex-col md:flex-row gap-2">
+            <input
+              type="text"
+              placeholder="Name"
+              value={newUser.name}
+              onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+              className="p-2 rounded-lg border border-pink-300 bg-pink-100 text-black flex-1"
             />
             <input
               type="email"
-              value={editingUser.email}
-              onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
-              placeholder="Enter email"
+              placeholder="Email"
+              value={newUser.email}
+              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+              className="p-2 rounded-lg border border-pink-300 bg-pink-100 text-black flex-1"
             />
             <button
-              onClick={handleUpdate}
-              className="bg-pink-700 hover:bg-pink-800 text-white font-semibold px-4 py-2 rounded transition-all duration-300"
+              onClick={handleAddUser}
+              className="bg-pink-700 hover:bg-pink-800 text-white font-bold py-2 px-4 rounded-lg"
             >
-              Save Changes
+              Add User
             </button>
           </div>
-        </div>
+
+          {/* User Table */}
+          <div className="overflow-x-auto">
+            <table className="table-auto w-full border-collapse border border-pink-200">
+              <thead>
+                <tr className="bg-pink-500">
+                  <th className="border px-4 py-2">ID</th>
+                  <th className="border px-4 py-2">Name</th>
+                  <th className="border px-4 py-2">Email</th>
+                  <th className="border px-4 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr key={user.id} className="hover:bg-pink-400">
+                    <td className="border px-4 py-2">{user.id}</td>
+                    <td className="border px-4 py-2">{user.name}</td>
+                    <td className="border px-4 py-2">{user.email}</td>
+                    <td className="border px-4 py-2 text-center">
+                      <div className="flex flex-col md:flex-row gap-2 justify-center">
+                        <button
+                          onClick={() => handleEdit(user)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded-lg"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded-lg"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="table-auto w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-pink-700 text-white">
-              <th className="px-4 py-2 border">ID</th>
-              <th className="px-4 py-2 border">Name</th>
-              <th className="px-4 py-2 border">Email</th>
-              <th className="px-4 py-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="bg-white text-black hover:bg-pink-100 transition-all">
-                <td className="px-4 py-2 border">{user.id}</td>
-                <td className="px-4 py-2 border">{user.name}</td>
-                <td className="px-4 py-2 border">{user.email}</td>
-                <td className="px-4 py-2 border flex flex-wrap gap-2 justify-center">
-                  <button
-                    onClick={() => handleEdit(user)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-3 py-1 rounded transition-all duration-300"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(user.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-3 py-1 rounded transition-all duration-300"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Modal for Editing User */}
+      <Dialog open={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <Dialog.Panel className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <Dialog.Title className="text-lg font-bold text-black">Edit User</Dialog.Title>
+            <div className="mt-4">
+              <input
+                type="text"
+                value={editingUser?.name || ""}
+                onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                className="w-full p-2 rounded-lg border border-gray-300 mb-4"
+              />
+              <input
+                type="email"
+                value={editingUser?.email || ""}
+                onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                className="w-full p-2 rounded-lg border border-gray-300 mb-4"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdate}
+                  className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
     </div>
   );
 };
